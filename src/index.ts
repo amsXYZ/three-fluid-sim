@@ -268,9 +268,9 @@ function render() {
     // Add external forces/colors according to input.
     if (mouseVelocity.length() > 0) {
       mouseForceAdditionPass.update({
-        position: mousePosition,
-        direction: mouseVelocity,
-        radius: configuration.Radius,
+        mousePosition,
+        mouseDirection: mouseVelocity,
+        mouseRadius: configuration.Radius,
         velocity: v
       });
       v = velocityRT.set(renderer);
@@ -278,9 +278,9 @@ function render() {
 
       if (configuration.AddColor) {
         mouseColorAdditionPass.update({
-          position: mousePosition,
-          direction: mouseVelocity,
-          radius: configuration.Radius,
+          mousePosition,
+          mouseDirection: mouseVelocity,
+          mouseRadius: configuration.Radius,
           color: c
         });
         c = colorRT.set(renderer);

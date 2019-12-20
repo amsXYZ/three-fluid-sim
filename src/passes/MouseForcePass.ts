@@ -29,9 +29,9 @@ export class MouseForcePass {
     this.material = new RawShaderMaterial({
       uniforms: {
         aspect: new Uniform(new Vector2(resolution.x / resolution.y, 1.0)),
-        position: new Uniform(new Vector2()),
-        direction: new Uniform(new Vector2()),
-        radius: new Uniform(radius),
+        mousePosition: new Uniform(new Vector2()),
+        mouseDirection: new Uniform(new Vector2()),
+        mouseRadius: new Uniform(radius),
         velocity: new Uniform(Texture.DEFAULT_IMAGE)
       },
       vertexShader: `
@@ -50,17 +50,17 @@ export class MouseForcePass {
         precision highp int;
         varying vec2 vUV;
         varying vec2 vScaledUV;
-        uniform vec2 position;
-        uniform vec2 direction;
-        uniform float radius;
+        uniform vec2 mousePosition;
+        uniform vec2 mouseDirection;
+        uniform float mouseRadius;
         uniform sampler2D velocity;
 
         void main() {
-          float d = distance(vScaledUV, position) / radius;
+          float d = distance(vScaledUV, mousePosition) / mouseRadius;
           float strength = 1.0 / max(d * d, 0.01);
-          strength *= clamp(dot(normalize(vScaledUV - position), normalize(direction)), 0.0, 1.0);
+          strength *= clamp(dot(normalize(vScaledUV - mousePosition), normalize(mouseDirection)), 0.0, 1.0);
 
-          gl_FragColor = texture2D(velocity, vUV) + vec4(strength * direction, 0.0, 0.0);
+          gl_FragColor = texture2D(velocity, vUV) + vec4(strength * mouseDirection, 0.0, 0.0);
         }`,
       depthTest: false,
       depthWrite: false
@@ -74,14 +74,14 @@ export class MouseForcePass {
     if (uniforms.aspect) {
       this.material.uniforms.aspect.value = uniforms.aspect;
     }
-    if (uniforms.position) {
-      this.material.uniforms.position.value = uniforms.position;
+    if (uniforms.mousePosition) {
+      this.material.uniforms.mousePosition.value = uniforms.mousePosition;
     }
-    if (uniforms.direction) {
-      this.material.uniforms.direction.value = uniforms.direction;
+    if (uniforms.mouseDirection) {
+      this.material.uniforms.mouseDirection.value = uniforms.mouseDirection;
     }
-    if (uniforms.radius) {
-      this.material.uniforms.radius.value = uniforms.radius;
+    if (uniforms.mouseRadius) {
+      this.material.uniforms.mouseRadius.value = uniforms.mouseRadius;
     }
     if (uniforms.velocity) {
       this.material.uniforms.velocity.value = uniforms.velocity;
