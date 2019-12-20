@@ -68,6 +68,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 const camera = new OrthographicCamera(0, 0, 0, 0, 0, 0);
 let dt = 1 / 60;
 
+// Check floating point texture support.
+if (!(renderer.context.getExtension("OES_texture_half_float") && renderer.context.getExtension("OES_texture_half_float_linear"))) {
+  alert("This demo is not supported on your device.");
+}
+
 const resolution = new Vector2(
   (configuration.Scale * window.innerWidth) / window.devicePixelRatio,
   (configuration.Scale * window.innerHeight) / window.devicePixelRatio
