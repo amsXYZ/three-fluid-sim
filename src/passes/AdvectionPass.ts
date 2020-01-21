@@ -16,7 +16,8 @@ export class AdvectionPass {
 
   constructor(
     readonly initialVelocity: Texture,
-    readonly initialValue: Texture
+    readonly initialValue: Texture,
+    readonly decay: number
   ) {
     this.scene = new Scene();
 
@@ -32,7 +33,8 @@ export class AdvectionPass {
       uniforms: {
         timeDelta: new Uniform(0.0),
         inputTexture: new Uniform(initialValue),
-        velocity: new Uniform(initialVelocity)
+        velocity: new Uniform(initialVelocity),
+        decay: new Uniform(decay)
       },
       vertexShader: `
         attribute vec2 position;
@@ -49,10 +51,11 @@ export class AdvectionPass {
         uniform float timeDelta;
         uniform sampler2D inputTexture;
         uniform sampler2D velocity;
+        uniform float decay;
 
         void main() {
           vec2 prevUV = fract(vUV - timeDelta * texture2D(velocity, vUV).xy);
-          gl_FragColor = texture2D(inputTexture, prevUV);
+          gl_FragColor = texture2D(inputTexture, prevUV) * (1.0 - decay);
         }`,
       depthTest: false,
       depthWrite: false
@@ -64,14 +67,17 @@ export class AdvectionPass {
   }
 
   public update(uniforms: any): void {
-    if (uniforms.timeDelta) {
+    if (uniforms.timeDelta !== undefined) {
       this.material.uniforms.timeDelta.value = uniforms.timeDelta;
     }
-    if (uniforms.inputTexture) {
+    if (uniforms.inputTexture !== undefined) {
       this.material.uniforms.inputTexture.value = uniforms.inputTexture;
     }
-    if (uniforms.velocity) {
+    if (uniforms.velocity !== undefined) {
       this.material.uniforms.velocity.value = uniforms.velocity;
+    }
+    if (uniforms.decay !== undefined) {
+      this.material.uniforms.decay.value = uniforms.decay;
     }
   }
 }

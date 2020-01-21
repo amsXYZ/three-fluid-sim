@@ -6,10 +6,13 @@ import {
   Scene,
   Texture,
   Uniform,
-  Vector2
+  Vector2,
+  Vector4
 } from "three";
 
-export class MouseColorPass {
+const MAX_TOUCHES = 5;
+
+export class TouchColorPass {
   public readonly scene: Scene;
 
   private material: RawShaderMaterial;
@@ -29,9 +32,12 @@ export class MouseColorPass {
     this.material = new RawShaderMaterial({
       uniforms: {
         aspect: new Uniform(new Vector2(resolution.x / resolution.y, 1.0)),
-        mousePosition: new Uniform(new Vector2()),
-        mouseDirection: new Uniform(new Vector2()),
-        mouseRadius: new Uniform(radius),
+        input0: new Uniform(new Vector4()),
+        input1: new Uniform(new Vector4()),
+        input2: new Uniform(new Vector4()),
+        input3: new Uniform(new Vector4()),
+        input4: new Uniform(new Vector4()),
+        radius: new Uniform(radius),
         color: new Uniform(Texture.DEFAULT_IMAGE)
       },
       vertexShader: `
@@ -50,17 +56,30 @@ export class MouseColorPass {
         precision highp int;
         varying vec2 vUV;
         varying vec2 vScaledUV;
-        uniform vec2 mousePosition;
-        uniform vec2 mouseDirection;
-        uniform float mouseRadius;
+        uniform vec4 input0;
+        uniform vec4 input1;
+        uniform vec4 input2;
+        uniform vec4 input3;
+        uniform vec4 input4;
+        uniform float radius;
         uniform sampler2D color;
 
-        void main() {
-          float d = distance(vScaledUV, mousePosition) / mouseRadius;
+        vec2 getColor(vec4 inputVec) {
+          float d = distance(vScaledUV, inputVec.xy) / radius;
           float strength = 1.0 / max(d * d, 0.01);
-          strength *= clamp(dot(normalize(vScaledUV - mousePosition), normalize(mouseDirection)), 0.0, 1.0);
+          strength *= clamp(dot(normalize(vScaledUV - inputVec.xy), normalize(inputVec.zw)), 0.0, 1.0);
+          return strength * abs(inputVec.zw) * radius;
+        }
 
-          gl_FragColor = texture2D(color, vUV) + vec4(strength * mouseDirection, 0.0, 0.0);
+        void main() {
+          vec4 touchColor = vec4(0.0);
+          touchColor.xy += getColor(input0);
+          touchColor.xy += getColor(input1);
+          touchColor.xy += getColor(input2);
+          touchColor.xy += getColor(input3);
+          touchColor.xy += getColor(input4);
+
+          gl_FragColor = texture2D(color, vUV) + touchColor;
         }`,
       depthTest: false,
       depthWrite: false
@@ -71,19 +90,21 @@ export class MouseColorPass {
   }
 
   public update(uniforms: any): void {
-    if (uniforms.aspect) {
+    if (uniforms.aspect !== undefined) {
       this.material.uniforms.aspect.value = uniforms.aspect;
     }
-    if (uniforms.mousePosition) {
-      this.material.uniforms.mousePosition.value = uniforms.mousePosition;
+    if (uniforms.touches !== undefined) {
+      for (let i = 0; i < uniforms.touches.length; ++i) {
+        this.material.uniforms["input" + i].value = uniforms.touches[i].input;
+      }
+      for (let i = uniforms.touches.length; i < MAX_TOUCHES; ++i) {
+        this.material.uniforms["input" + i].value.set(0, 0, 0, 0);
+      }
     }
-    if (uniforms.mouseDirection) {
-      this.material.uniforms.mouseDirection.value = uniforms.mouseDirection;
+    if (uniforms.radius !== undefined) {
+      this.material.uniforms.radius.value = uniforms.radius;
     }
-    if (uniforms.mouseRadius) {
-      this.material.uniforms.mouseRadius.value = uniforms.mouseRadius;
-    }
-    if (uniforms.color) {
+    if (uniforms.color !== undefined) {
       this.material.uniforms.color.value = uniforms.color;
     }
   }

@@ -5,6 +5,7 @@ import {
   Texture,
   UnsignedByteType,
   Vector2,
+  Vector4,
   WebGLRenderer
 } from "three";
 import { AdvectionPass } from "./passes/AdvectionPass";
@@ -14,8 +15,8 @@ import { CompositionPass } from "./passes/CompositionPass";
 import { DivergencePass } from "./passes/DivergencePass";
 import { GradientSubstractionPass } from "./passes/GradientSubstractionPass";
 import { JacobiIterationsPass } from "./passes/JacobiIterationsPass";
-import { MouseColorPass } from "./passes/MouseColorPass";
-import { MouseForcePass } from "./passes/MouseForcePass";
+import { TouchColorPass } from "./passes/TouchColorPass";
+import { TouchForcePass } from "./passes/TouchForcePass";
 import { VelocityInitPass } from "./passes/VelocityInitPass";
 import { RenderTarget } from "./RenderTarget";
 
@@ -30,9 +31,11 @@ const configuration = {
   Iterations: 32,
   Radius: 0.25,
   Scale: 1.0,
+  ColorDecay: 0.01,
   Boundaries: true,
   AddColor: true,
   Visualize: "Color",
+  Mode: "Spectral",
   Timestep: "1/60",
   Reset: () => {
     velocityAdvectionPass.update({
@@ -56,26 +59,31 @@ const configuration = {
 
 // Html/Three.js initialization.
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const container = canvas.parentElement;
 const stats = new Stats();
-container.appendChild(stats.dom);
+canvas.parentElement.appendChild(stats.dom);
 const gui = new dat.GUI();
 initGUI();
 
 const renderer = new WebGLRenderer({ canvas });
 renderer.autoClear = false;
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 const camera = new OrthographicCamera(0, 0, 0, 0, 0, 0);
 let dt = 1 / 60;
 
 // Check floating point texture support.
-if (!(renderer.context.getExtension("OES_texture_half_float") && renderer.context.getExtension("OES_texture_half_float_linear"))) {
+if (
+  !(
+    renderer.context.getExtension("OES_texture_half_float") &&
+    renderer.context.getExtension("OES_texture_half_float_linear")
+  )
+) {
   alert("This demo is not supported on your device.");
 }
 
 const resolution = new Vector2(
-  (configuration.Scale * window.innerWidth) / window.devicePixelRatio,
-  (configuration.Scale * window.innerHeight) / window.devicePixelRatio
+  configuration.Scale * window.innerWidth,
+  configuration.Scale * window.innerHeight
 );
 const aspect = new Vector2(resolution.x / resolution.y, 1.0);
 
@@ -99,17 +107,19 @@ const colorInitPass = new ColorInitPass(renderer, resolution);
 const colorInitTexture = colorInitPass.render();
 const velocityAdvectionPass = new AdvectionPass(
   velocityInitTexture,
-  velocityInitTexture
+  velocityInitTexture,
+  0
 );
 const colorAdvectionPass = new AdvectionPass(
   velocityInitTexture,
-  colorInitTexture
+  colorInitTexture,
+  configuration.ColorDecay
 );
-const mouseForceAdditionPass = new MouseForcePass(
+const touchForceAdditionPass = new TouchForcePass(
   resolution,
   configuration.Radius
 );
-const mouseColorAdditionPass = new MouseColorPass(
+const touchColorAdditionPass = new TouchColorPass(
   resolution,
   configuration.Radius
 );
@@ -122,10 +132,11 @@ const compositionPass = new CompositionPass();
 // Event listeners (resizing and mouse/touch input).
 window.addEventListener("resize", (event: UIEvent) => {
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
 
   resolution.set(
-    (configuration.Scale * window.innerWidth) / window.devicePixelRatio,
-    (configuration.Scale * window.innerHeight) / window.devicePixelRatio
+    configuration.Scale * window.innerWidth,
+    configuration.Scale * window.innerHeight
   );
   velocityRT.resize(resolution);
   divergenceRT.resize(resolution);
@@ -133,65 +144,98 @@ window.addEventListener("resize", (event: UIEvent) => {
   colorRT.resize(resolution);
 
   aspect.set(resolution.x / resolution.y, 1.0);
-  mouseForceAdditionPass.update({ aspect });
-  mouseColorAdditionPass.update({ aspect });
+  touchForceAdditionPass.update({ aspect });
+  touchColorAdditionPass.update({ aspect });
 });
 
-let isRecordingMouse = false;
-const mousePosition = new Vector2();
-const mouseVelocity = new Vector2();
-container.addEventListener("mousedown", (event: MouseEvent) => {
-  if (event.button === 0) {
-    mousePosition.x = (event.clientX / canvas.clientWidth) * aspect.x;
-    mousePosition.y = 1.0 - event.clientY / canvas.clientHeight;
-    isRecordingMouse = true;
+window.addEventListener("keyup", (event: KeyboardEvent) => {
+  if (event.keyCode === 72) {
+    stats.dom.hidden = !stats.dom.hidden;
   }
 });
-container.addEventListener("touchstart", (event: TouchEvent) => {
-  const touch = event.changedTouches[0];
-  mousePosition.x = (touch.clientX / canvas.clientWidth) * 2 - 1;
-  mousePosition.y = -(touch.clientY / canvas.clientHeight) * 2 + 1;
-  isRecordingMouse = true;
-});
-container.addEventListener("mousemove", (event: MouseEvent) => {
-  if (isRecordingMouse) {
+
+interface ITouchInput {
+  id: string | number;
+  input: Vector4;
+}
+
+let inputTouches: ITouchInput[] = [];
+canvas.addEventListener("mousedown", (event: MouseEvent) => {
+  if (event.button === 0) {
     const x = (event.clientX / canvas.clientWidth) * aspect.x;
-    const y = 1.0 - event.clientY / canvas.clientHeight;
-    mouseVelocity.set(x, y).sub(mousePosition);
-    mousePosition.set(x, y);
+    const y = 1.0 - (event.clientY + window.scrollY) / canvas.clientHeight;
+    inputTouches.push({
+      id: "mouse",
+      input: new Vector4(x, y, 0, 0)
+    });
   }
 });
-container.addEventListener("touchmove", (event: TouchEvent) => {
-  event.preventDefault();
-  if (isRecordingMouse) {
-    const touch = event.changedTouches[0];
-    const x = (touch.clientX / canvas.clientWidth) * aspect.x;
-    const y = 1.0 - touch.clientY / canvas.clientHeight;
-    mouseVelocity.set(x, y).sub(mousePosition);
-    mousePosition.set(x, y);
+canvas.addEventListener("mousemove", (event: MouseEvent) => {
+  if (inputTouches.length > 0) {
+    const x = (event.clientX / canvas.clientWidth) * aspect.x;
+    const y = 1.0 - (event.clientY + window.scrollY) / canvas.clientHeight;
+    inputTouches[0].input
+      .setZ(x - inputTouches[0].input.x)
+      .setW(y - inputTouches[0].input.y);
+    inputTouches[0].input.setX(x).setY(y);
   }
 });
-container.addEventListener("mouseup", (event: MouseEvent) => {
+canvas.addEventListener("mouseup", (event: MouseEvent) => {
   if (event.button === 0) {
-    if (isRecordingMouse) {
-      mouseVelocity.set(0, 0);
-      mousePosition.set(0, 0);
-      isRecordingMouse = false;
+    inputTouches.pop();
+  }
+});
+
+canvas.addEventListener("touchstart", (event: TouchEvent) => {
+  for (const touch of event.changedTouches) {
+    const x = (touch.clientX / canvas.clientWidth) * aspect.x;
+    const y = 1.0 - (touch.clientY + window.scrollY) / canvas.clientHeight;
+    inputTouches.push({
+      id: touch.identifier,
+      input: new Vector4(x, y, 0, 0)
+    });
+  }
+});
+
+canvas.addEventListener("touchmove", (event: TouchEvent) => {
+  event.preventDefault();
+  for (const touch of event.changedTouches) {
+    const registeredTouch = inputTouches.find(value => {
+      return value.id === touch.identifier;
+    });
+    if (registeredTouch !== undefined) {
+      const x = (touch.clientX / canvas.clientWidth) * aspect.x;
+      const y = 1.0 - (touch.clientY + window.scrollY) / canvas.clientHeight;
+      registeredTouch.input
+        .setZ(x - registeredTouch.input.x)
+        .setW(y - registeredTouch.input.y);
+      registeredTouch.input.setX(x).setY(y);
     }
   }
 });
-container.addEventListener("touchend", (event: MouseEvent) => {
-  if (isRecordingMouse) {
-    mouseVelocity.set(0, 0);
-    mousePosition.set(0, 0);
-    isRecordingMouse = false;
+
+canvas.addEventListener("touchend", (event: TouchEvent) => {
+  for (const touch of event.changedTouches) {
+    const registeredTouch = inputTouches.find(value => {
+      return value.id === touch.identifier;
+    });
+    if (registeredTouch !== undefined) {
+      inputTouches = inputTouches.filter(value => {
+        return value.id !== registeredTouch.id;
+      });
+    }
   }
 });
-container.addEventListener("touchcancel", (event: MouseEvent) => {
-  if (isRecordingMouse) {
-    mouseVelocity.set(0, 0);
-    mousePosition.set(0, 0);
-    isRecordingMouse = false;
+
+canvas.addEventListener("touchcancel", (event: TouchEvent) => {
+  for (let i = 0; i < inputTouches.length; ++i) {
+    for (let j = 0; j < event.touches.length; ++j) {
+      if (inputTouches[i].id === event.touches.item(j).identifier) {
+        break;
+      } else if (j === event.touches.length - 1) {
+        inputTouches.splice(i--, 1);
+      }
+    }
   }
 });
 
@@ -202,8 +246,8 @@ function initGUI() {
     .add(configuration, "Scale", 0.1, 2.0, 0.1)
     .onFinishChange((value: number) => {
       resolution.set(
-        (configuration.Scale * window.innerWidth) / window.devicePixelRatio,
-        (configuration.Scale * window.innerHeight) / window.devicePixelRatio
+        configuration.Scale * window.innerWidth,
+        configuration.Scale * window.innerHeight
       );
       velocityRT.resize(resolution);
       divergenceRT.resize(resolution);
@@ -211,6 +255,7 @@ function initGUI() {
       colorRT.resize(resolution);
     });
   sim.add(configuration, "Iterations", 16, 128, 1);
+  sim.add(configuration, "ColorDecay", 0.0, 0.1, 0.01);
   sim
     .add(configuration, "Timestep", ["1/15", "1/30", "1/60", "1/90", "1/120"])
     .onChange((value: string) => {
@@ -246,6 +291,7 @@ function initGUI() {
     "Divergence",
     "Pressure"
   ]);
+  gui.add(configuration, "Mode", ["Normal", "Luminance", "Spectral"]);
 
   const github = gui.add(configuration, "Github");
   github.__li.className = "guiIconText";
@@ -271,25 +317,23 @@ function render() {
     renderer.render(velocityAdvectionPass.scene, camera);
 
     // Add external forces/colors according to input.
-    if (mouseVelocity.length() > 0) {
-      mouseForceAdditionPass.update({
-        mousePosition,
-        mouseDirection: mouseVelocity,
-        mouseRadius: configuration.Radius,
+    if (inputTouches.length > 0) {
+      touchForceAdditionPass.update({
+        touches: inputTouches,
+        radius: configuration.Radius,
         velocity: v
       });
       v = velocityRT.set(renderer);
-      renderer.render(mouseForceAdditionPass.scene, camera);
+      renderer.render(touchForceAdditionPass.scene, camera);
 
       if (configuration.AddColor) {
-        mouseColorAdditionPass.update({
-          mousePosition,
-          mouseDirection: mouseVelocity,
-          mouseRadius: configuration.Radius,
+        touchColorAdditionPass.update({
+          touches: inputTouches,
+          radius: configuration.Radius,
           color: c
         });
         c = colorRT.set(renderer);
-        renderer.render(mouseColorAdditionPass.scene, camera);
+        renderer.render(touchColorAdditionPass.scene, camera);
       }
     }
 
@@ -331,7 +375,8 @@ function render() {
     colorAdvectionPass.update({
       timeDelta: dt,
       inputTexture: c,
-      velocity: v
+      velocity: v,
+      decay: configuration.ColorDecay
     });
     c = colorRT.set(renderer);
     renderer.render(colorAdvectionPass.scene, camera);
@@ -363,7 +408,10 @@ function render() {
       visualization = p;
       break;
   }
-  compositionPass.update({ colorBuffer: visualization });
+  compositionPass.update({
+    colorBuffer: visualization,
+    mode: configuration.Mode
+  });
   renderer.render(compositionPass.scene, camera);
 }
 function animate() {

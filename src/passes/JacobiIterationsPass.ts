@@ -70,11 +70,11 @@ export class JacobiIterationsPass {
   }
 
   public update(uniforms: any): void {
-    if (uniforms.previousIteration) {
+    if (uniforms.previousIteration !== undefined) {
       this.material.uniforms.previousIteration.value =
         uniforms.previousIteration;
     }
-    if (uniforms.divergence) {
+    if (uniforms.divergence !== undefined) {
       this.material.uniforms.divergence.value = uniforms.divergence;
     }
   }

@@ -66,13 +66,13 @@ export class DivergencePass {
   }
 
   public update(uniforms: any): void {
-    if (uniforms.timeDelta) {
+    if (uniforms.timeDelta !== undefined) {
       this.material.uniforms.timeDelta.value = uniforms.timeDelta;
     }
-    if (uniforms.density) {
+    if (uniforms.density !== undefined) {
       this.material.uniforms.density.value = uniforms.density;
     }
-    if (uniforms.velocity) {
+    if (uniforms.velocity !== undefined) {
       this.material.uniforms.velocity.value = uniforms.velocity;
     }
   }

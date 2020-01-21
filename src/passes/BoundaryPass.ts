@@ -5,7 +5,8 @@ import {
   RawShaderMaterial,
   Scene,
   Texture,
-  Uniform
+  Uniform,
+  Vector2
 } from "three";
 
 export class BoundaryPass {
@@ -65,16 +66,16 @@ export class BoundaryPass {
   }
 
   public update(uniforms: any): void {
-    if (uniforms.position) {
+    if (uniforms.position !== undefined) {
       this.material.uniforms.position.value = uniforms.position;
     }
-    if (uniforms.direction) {
+    if (uniforms.direction !== undefined) {
       this.material.uniforms.direction.value = uniforms.direction;
     }
-    if (uniforms.radius) {
+    if (uniforms.radius !== undefined) {
       this.material.uniforms.radius.value = uniforms.radius;
     }
-    if (uniforms.velocity) {
+    if (uniforms.velocity !== undefined) {
       this.material.uniforms.velocity.value = uniforms.velocity;
     }
   }

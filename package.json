@@ -11,6 +11,7 @@
     "fix": "yarn tslint:fix && yarn prettier:fix",
     "build": "webpack --config webpack/prod.config.js",
     "start": "webpack-dev-server --config webpack/dev.config.js",
+    "start:local": "yarn start --host 0.0.0.0",
     "tslint": "tslint --project tsconfig.json",
     "tslint:fix": "tslint --fix --project tsconfig.json",
     "prettier": "prettier -l \"**/*.ts\" \"**/*.tsx\" \"**/*.json\"",
