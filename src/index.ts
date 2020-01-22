@@ -30,7 +30,7 @@ const configuration = {
   Simulate: true,
   Iterations: 32,
   Radius: 0.25,
-  Scale: 1.0,
+  Scale: 0.5,
   ColorDecay: 0.01,
   Boundaries: true,
   AddColor: true,

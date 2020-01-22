@@ -10,7 +10,7 @@ import {
   Vector4
 } from "three";
 
-const MAX_TOUCHES = 5;
+const MAX_TOUCHES = 10;
 
 export class TouchColorPass {
   public readonly scene: Scene;
@@ -37,6 +37,11 @@ export class TouchColorPass {
         input2: new Uniform(new Vector4()),
         input3: new Uniform(new Vector4()),
         input4: new Uniform(new Vector4()),
+        input5: new Uniform(new Vector4()),
+        input6: new Uniform(new Vector4()),
+        input7: new Uniform(new Vector4()),
+        input8: new Uniform(new Vector4()),
+        input9: new Uniform(new Vector4()),
         radius: new Uniform(radius),
         color: new Uniform(Texture.DEFAULT_IMAGE)
       },
@@ -61,6 +66,11 @@ export class TouchColorPass {
         uniform vec4 input2;
         uniform vec4 input3;
         uniform vec4 input4;
+        uniform vec4 input5;
+        uniform vec4 input6;
+        uniform vec4 input7;
+        uniform vec4 input8;
+        uniform vec4 input9;
         uniform float radius;
         uniform sampler2D color;
 
@@ -78,6 +88,11 @@ export class TouchColorPass {
           touchColor.xy += getColor(input2);
           touchColor.xy += getColor(input3);
           touchColor.xy += getColor(input4);
+          touchColor.xy += getColor(input5);
+          touchColor.xy += getColor(input6);
+          touchColor.xy += getColor(input7);
+          touchColor.xy += getColor(input8);
+          touchColor.xy += getColor(input9);
 
           gl_FragColor = texture2D(color, vUV) + touchColor;
         }`,
@@ -94,7 +109,8 @@ export class TouchColorPass {
       this.material.uniforms.aspect.value = uniforms.aspect;
     }
     if (uniforms.touches !== undefined) {
-      for (let i = 0; i < uniforms.touches.length; ++i) {
+      const touchMax = Math.min(MAX_TOUCHES, uniforms.touches.length);
+      for (let i = 0; i < touchMax; ++i) {
         this.material.uniforms["input" + i].value = uniforms.touches[i].input;
       }
       for (let i = uniforms.touches.length; i < MAX_TOUCHES; ++i) {
