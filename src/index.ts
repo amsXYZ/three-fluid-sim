@@ -3,6 +3,7 @@ import {
   OrthographicCamera,
   RGBFormat,
   Texture,
+  TextureLoader,
   UnsignedByteType,
   Vector2,
   Vector4,
@@ -24,6 +25,10 @@ import { RenderTarget } from "./RenderTarget";
 const Stats = require("stats.js");
 const dat = require("dat.gui");
 // tslint:enable:no-var-requires
+
+const gradients: string[] = ["gradient.jpg"];
+const gradientTextures: Texture[] = [];
+loadGradients();
 
 // App configuration options.
 const configuration = {
@@ -240,6 +245,16 @@ canvas.addEventListener("touchcancel", (event: TouchEvent) => {
 });
 
 // Dat.GUI configuration.
+function loadGradients() {
+  const textureLoader = new TextureLoader().setPath("./resources/");
+  for (let i = 0; i < gradients.length; ++i) {
+    textureLoader.load(gradients[i], (texture: Texture) => {
+      gradientTextures[i] = texture;
+    });
+  }
+}
+
+// Dat.GUI configuration.
 function initGUI() {
   const sim = gui.addFolder("Simulation");
   sim
@@ -291,7 +306,12 @@ function initGUI() {
     "Divergence",
     "Pressure"
   ]);
-  gui.add(configuration, "Mode", ["Normal", "Luminance", "Spectral"]);
+  gui.add(configuration, "Mode", [
+    "Normal",
+    "Luminance",
+    "Spectral",
+    "Gradient"
+  ]);
 
   const github = gui.add(configuration, "Github");
   github.__li.className = "guiIconText";
@@ -410,7 +430,8 @@ function render() {
   }
   compositionPass.update({
     colorBuffer: visualization,
-    mode: configuration.Mode
+    mode: configuration.Mode,
+    gradient: gradientTextures[0]
   });
   renderer.render(compositionPass.scene, camera);
 }

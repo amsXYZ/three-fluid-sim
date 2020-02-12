@@ -27,7 +27,8 @@ export class CompositionPass {
     );
     this.material = new RawShaderMaterial({
       uniforms: {
-        colorBuffer: new Uniform(Texture.DEFAULT_IMAGE)
+        colorBuffer: new Uniform(Texture.DEFAULT_IMAGE),
+        gradient: new Uniform(Texture.DEFAULT_IMAGE)
       },
       defines: {
         MODE: 0
@@ -46,6 +47,7 @@ export class CompositionPass {
 
           varying vec2 vUV;
           uniform sampler2D colorBuffer;
+          uniform sampler2D gradient;
 
           const vec3 W = vec3(0.2125, 0.7154, 0.0721);
           float luminance(in vec3 color) {
@@ -79,6 +81,8 @@ export class CompositionPass {
             gl_FragColor = vec4(lum);
             #elif MODE == 2
             gl_FragColor = spectral(mix(340.0, 700.0, lum));
+            #elif MODE == 3
+            gl_FragColor = texture2D(gradient, vec2(lum, 0.0));
             #endif
           }`,
       depthTest: false,
@@ -103,6 +107,9 @@ export class CompositionPass {
         case "Spectral":
           mode = 2;
           break;
+        case "Gradient":
+          mode = 3;
+          break;
         case "Normal":
         default:
       }
@@ -110,6 +117,9 @@ export class CompositionPass {
         this.material.defines.MODE = mode;
         this.material.needsUpdate = true;
       }
+    }
+    if (uniforms.gradient !== undefined) {
+      this.material.uniforms.gradient.value = uniforms.gradient;
     }
   }
 }
